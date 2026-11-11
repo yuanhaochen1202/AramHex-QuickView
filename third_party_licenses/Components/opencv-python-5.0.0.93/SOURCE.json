@@ -1,0 +1,44 @@
+{
+  "package": "opencv-python",
+  "version": "5.0.0.93",
+  "status": "collected",
+  "metadata_url": "https://pypi.org/pypi/opencv-python/5.0.0.93/json",
+  "project_urls": {
+    "Homepage": "https://github.com/opencv/opencv-python"
+  },
+  "license_expression": null,
+  "license_metadata": "Apache 2.0",
+  "wheel_filename": "opencv_python-5.0.0.93-cp37-abi3-win_amd64.whl",
+  "wheel_url": "https://files.pythonhosted.org/packages/21/f0/9fa6e85cb10c8eb36a0222d27e50fe381b86ce49a55446bf39f491727564/opencv_python-5.0.0.93-cp37-abi3-win_amd64.whl",
+  "wheel_size": 44000345,
+  "wheel_sha256_from_pypi": "f90ba04b8f73bc5c3814037699739f0156f597338a98f05956c684e7c3ca10d2",
+  "whole_wheel_sha256_verified": false,
+  "retrieval": "anonymous direct HTTPS byte ranges; individual ZIP CRC verified; whole wheel not downloaded",
+  "transferred_bytes": 156761,
+  "files": [
+    {
+      "wheel_member": "cv2/LICENSE-3RD-PARTY.txt",
+      "path": "Components/opencv-python-5.0.0.93/cv2/LICENSE-3RD-PARTY.txt",
+      "size": 183251,
+      "sha256": "c1d60169b55cee56452b227c2fd2a7b9ddda3dd3741065f1c6201072be73fadb"
+    },
+    {
+      "wheel_member": "cv2/LICENSE.txt",
+      "path": "Components/opencv-python-5.0.0.93/cv2/LICENSE.txt",
+      "size": 1090,
+      "sha256": "edef0fac1eb08d29d34563f724742e078da2513e196133a12c6ad9ff01e26107"
+    },
+    {
+      "wheel_member": "opencv_python-5.0.0.93.dist-info/LICENSE-3RD-PARTY.txt",
+      "path": "Components/opencv-python-5.0.0.93/opencv_python-5.0.0.93.dist-info/LICENSE-3RD-PARTY.txt",
+      "size": 183251,
+      "sha256": "c1d60169b55cee56452b227c2fd2a7b9ddda3dd3741065f1c6201072be73fadb"
+    },
+    {
+      "wheel_member": "opencv_python-5.0.0.93.dist-info/LICENSE.txt",
+      "path": "Components/opencv-python-5.0.0.93/opencv_python-5.0.0.93.dist-info/LICENSE.txt",
+      "size": 1090,
+      "sha256": "edef0fac1eb08d29d34563f724742e078da2513e196133a12c6ad9ff01e26107"
+    }
+  ]
+}

@@ -1,0 +1,351 @@
+"""腾讯官方资料：抓取、落盘、按需刷新。
+
+目录：<app_home>/data/
+  static.json        英雄、海克斯字典、装备、召唤师技能、版本
+  hero/<id>.json     单英雄的官方出装、加点、海克斯层级（按需抓取）
+
+网络失败时继续使用旧缓存，并在 status() 里标明，界面据此提示"官方资料可能过期"。
+连旧缓存都没有（第一次运行就连不上腾讯 CDN）时，用随程序内置的 static_bundled.json、hero_bundled.json（1.1.2）。
+胜率统计不在这里，见 public.py（自采统计数据）。
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import threading
+import time
+from pathlib import Path
+
+from . import http, tencent
+
+log = logging.getLogger(__name__)
+
+CDRAGON_AUG = ("https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/"
+               "global/zh_cn/v1/cherry-augments.json")
+CDRAGON_RARITY = {"kSilver": "silver", "kGold": "gold", "kPrismatic": "prismatic"}
+
+_ALIASES: dict[str, list[str]] | None = None
+
+
+def hero_aliases() -> dict[str, list[str]]:
+    """玩家常用叫法，随安装包带：hero_aliases.json（来源：Hexdata，hexdata.com.cn）
+    + hero_nicknames.json（网上常见外号，人工整理）。"""
+    global _ALIASES
+    if _ALIASES is None:
+        _ALIASES = {}
+        for name, key in (("hero_aliases.json", "aliases"), ("hero_nicknames.json", "nicknames")):
+            try:
+                d = json.loads(Path(__file__).with_name(name).read_text(encoding="utf-8"))[key]
+            except (OSError, ValueError, KeyError):
+                continue
+            for hid, names in d.items():
+                _ALIASES.setdefault(hid, []).extend(names)
+    return _ALIASES
+
+
+def _read(path: Path):
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+BUNDLED_STATIC = Path(__file__).with_name("static_bundled.json")
+
+
+def bundled_static(path: Path = BUNDLED_STATIC) -> dict:
+    """随程序内置的官方资料（英雄、海克斯、装备、召唤师技能，scripts/update_static.py 生成）。
+    只在本机没有缓存时用：第一次运行碰上腾讯 CDN 连不上（加速器、代理、网络拦截），以前英雄和海克斯名单都是空的，
+    选英雄、三选一全都认不出（玩家反馈 10-23）。fetched_at 记 0：照样算过期，每次启动先联网取最新的。"""
+    data = _read(path)
+    if not isinstance(data, dict) or not data.get("heroes") or not data.get("augments"):
+        return {}
+    return {**data, "fetched_at": 0, "bundled": True}
+
+
+BUNDLED_HEROES = Path(__file__).with_name("hero_bundled.json")
+_bundled_heroes: dict[str, dict] | None = None
+
+
+def bundled_hero(hero_id: str, path: Path = BUNDLED_HEROES) -> dict | None:
+    """随程序内置的单英雄官方数据（出装、加点、海克斯层级，scripts/update_static.py 生成）。
+    本机没有缓存又连不上腾讯时用；fetched_at 记 0，下次照样先联网。整个文件约 4 MB，用到才读，读一次就记住。"""
+    global _bundled_heroes
+    if path == BUNDLED_HEROES and _bundled_heroes is not None:
+        heroes = _bundled_heroes
+    else:
+        d = _read(path)
+        heroes = d["heroes"] if isinstance(d, dict) and isinstance(d.get("heroes"), dict) else {}
+        if path == BUNDLED_HEROES:
+            _bundled_heroes = heroes
+    h = heroes.get(str(hero_id))
+    return {**h, "fetched_at": 0, "bundled": True} if isinstance(h, dict) else None
+
+
+def _usable(static) -> bool:
+    return isinstance(static, dict) and bool(static.get("heroes")) and bool(static.get("augments"))
+
+
+def _write(path: Path, data) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(path)
+
+
+class DataStore:
+    def __init__(self, root: Path, refresh_hours: float = 6.0, *, managed: bool = False):
+        self.root = Path(root)
+        self.refresh_s = refresh_hours * 3600
+        self._lock = threading.RLock()
+        cached = _read(self.root / "static.json")
+        self.static: dict = cached if _usable(cached) else bundled_static()
+        if self.static.get("bundled") and not managed:
+            log.info("没有官方资料缓存：先用内置的一份（%s 版本，%s），联网后换成最新的",
+                     self.static.get("patch") or "?", self.static.get("generated") or "?")
+        self.ranks: dict = {}
+        self._heroes: dict[str, dict] = {}
+        self.last_error: str | None = None
+        self.official = None
+        if managed:
+            from .official import ManagedOfficial
+            self.official = ManagedOfficial(self.root / "official",
+                                           hold=lambda: getattr(self, "hold", lambda: False)())
+            self.official.activation_guard = lambda: self._lock
+            st = self.official.status()
+            log.info("官方资料：%s（第 %s 版，%s 版本，%s）；不连腾讯，只按云控从自有服务器检查更新",
+                     "内置" if st.get("official_origin") == "bundled" else "已下载",
+                     st.get("official_revision"), self.official.snapshot.static.get("patch") or "?",
+                     st.get("official_date") or "?")
+
+    @property
+    def static(self) -> dict:
+        official = getattr(self, "official", None)
+        return official.snapshot.static if official is not None else self._static
+
+    @static.setter
+    def static(self, value: dict) -> None:
+        self._static = value
+
+    # ---------- 刷新 ----------
+
+    def _stale(self, blob: dict) -> bool:
+        return not blob or time.time() - blob.get("fetched_at", 0) > self.refresh_s
+
+    def sync_official(self, force: bool = False) -> bool:
+        """官方资料：按云控间隔查自有服务器，force=True 不等间隔（「检查更新」按钮）；换上新一版返回 True。
+        云控关了检查（official_minutes=0）或没有资料源时照样不联网；选英雄、对局中下载了也等结束再换。"""
+        if self.official is None:
+            return False
+        changed = self.official.sync(force=force)
+        if changed:
+            with self._lock:
+                self._heroes.clear()
+        self.last_error = self.official.status().get("official_error")
+        return changed
+
+    def refresh(self, force: bool = False) -> None:
+        if self.official is not None:
+            self.sync_official(force)
+            return
+        self.last_error = None
+        if force or self._stale(self.static) or not all("roles" in h for h in self.heroes.values()):
+            try:
+                self._refresh_static()
+            except Exception as e:  # 网络失败：继续用旧缓存
+                log.warning("刷新官方资料失败：%s", e)
+                self.last_error = f"官方资料：{e}"
+
+    def _refresh_static(self) -> None:
+        heroes = tencent.parse_hero_list(tencent.fetch_hero_list())
+        augments = tencent.parse_kiwi_augments(tencent.fetch_kiwi_augments())
+        items = tencent.parse_items(tencent.fetch_items())
+        try:
+            spells = tencent.parse_summoner_spells(tencent.fetch_summoner_spells())
+        except Exception as e:
+            log.info("召唤师技能列表获取失败：%s", e)
+            spells = self.static.get("spells", {})
+        try:
+            versions = tencent.fetch_versions()
+        except Exception:
+            versions = self.static.get("versions", [])
+        try:
+            self._merge_cdragon(augments)
+        except Exception as e:
+            log.info("CommunityDragon 补充失败：%s", e)
+        patch = versions[0]["name"] if versions else self.static.get("patch", "")
+        with self._lock:
+            if patch and patch != self.static.get("patch"):
+                self._heroes.clear()  # 新版本：单英雄缓存作废
+            self.static = {"fetched_at": time.time(), "patch": patch, "versions": versions[:6],
+                           "heroes": heroes, "augments": augments, "items": items, "spells": spells}
+            _write(self.root / "static.json", self.static)
+
+    @staticmethod
+    def _merge_cdragon(augments: dict) -> None:
+        """腾讯 kiwi 列表偶尔缺条目，用 CommunityDragon 中文数据补名字和稀有度。"""
+        raw = http.get_json(CDRAGON_AUG, timeout=30)
+        for a in raw:
+            aid = str(a.get("id"))
+            name_id = str(a.get("augmentNameId", ""))
+            icon = str(a.get("augmentSmallIconPath", ""))
+            is_mayhem = name_id.startswith("ARAM_") or "kiwi" in icon.lower()
+            if aid in augments or not is_mayhem or not a.get("nameTRA"):
+                continue
+            augments[aid] = {"id": aid, "name": a["nameTRA"].strip(), "en": name_id,
+                             "rarity": CDRAGON_RARITY.get(a.get("rarity"), "unknown"),
+                             "desc": "", "icon": "", "modes": ["KIWI"], "source": "cdragon"}
+
+    # ---------- 查询 ----------
+
+    @property
+    def augments(self) -> dict[str, dict]:
+        original, fixes = self.static.get("augments", {}), tencent.rarity_fixes()
+        cached = getattr(self, "_augment_fixes_cache", None)
+        if cached is None or cached[0] is not original or cached[1] != fixes:
+            corrected = {aid: {**row, "rarity": fixes[aid]} if aid in fixes else row
+                         for aid, row in original.items()}
+            self._augment_fixes_cache = original, fixes, corrected
+        return self._augment_fixes_cache[2]
+
+    @property
+    def heroes(self) -> dict[str, dict]:
+        return self.static.get("heroes", {})
+
+    def provisional_augments(self) -> dict[str, dict]:
+        """过渡数据里暂用测试服统计的新海克斯 {ID: {games, wins, win_rate, source}}。只有公开数据集有这一项。"""
+        return {}
+
+    def excluded_augments(self) -> dict[str, str]:
+        """统计里剔除的海克斯 {ID: 原因}（胜率不可信，不打分）。只有公开数据集有这一项。"""
+        return {}
+
+    @property
+    def items(self) -> dict[str, dict]:
+        return self.static.get("items", {})
+
+    @property
+    def spells(self) -> dict[str, dict]:
+        return self.static.get("spells", {})
+
+    def mayhem_augments(self) -> dict[str, dict]:
+        """用于识别匹配的字典：只要大乱斗（KIWI）海克斯，排除纯斗魂竞技场条目。"""
+        from ..recommend import HIDDEN_AUGMENTS
+        out = {}
+        for aid, a in self.augments.items():
+            if aid in HIDDEN_AUGMENTS or not a.get("name"):  # 五杀乐队的标记这类没名字的，认不出也不该认
+                continue
+            modes = a.get("modes") or []
+            if not modes or any(m.startswith("KIWI") for m in modes):
+                out[aid] = a
+        return out
+
+    def hero_terms(self, hid: str) -> list[str]:
+        """能搜到这个英雄的所有叫法：名字、称号、英文名、腾讯关键词（含拼音缩写）、玩家叫法。"""
+        h = self.heroes.get(hid) or {}
+        raw = [h.get("name"), h.get("nick"), h.get("alias"), *(h.get("keywords") or "").split(","),
+               *hero_aliases().get(hid, [])]
+        out, seen = [], set()
+        for t in raw:
+            t = (t or "").strip()
+            if t and t.lower() not in seen:
+                seen.add(t.lower())
+                out.append(t)
+        return out
+
+    def resolve_hero(self, key: str | int | None) -> str | None:
+        """按 heroId / 英文 alias / 中文名 / 称号找英雄；
+        再按别名（腾讯关键词、玩家叫法）精确匹配。"""
+        if key in (None, "", 0, "0"):
+            return None
+        k = str(key).strip()
+        if k in self.heroes:
+            return k
+        if k.startswith("game_character_displayname_"):
+            k = k[len("game_character_displayname_"):]
+        kl = k.lower()
+        for hid, h in self.heroes.items():
+            if kl in ((h.get("alias") or "").lower(), (h.get("name") or "").lower(),
+                      (h.get("nick") or "").lower()):
+                return hid
+        for hid in self.heroes:
+            if kl in (t.lower() for t in self.hero_terms(hid)):
+                return hid
+        for hid, h in self.heroes.items():
+            full = f"{h.get('nick', '')} {h.get('name', '')}".lower()
+            if kl and kl in full:
+                return hid
+        if not kl.isascii():  # 中文外号的一部分，如"风男"→快乐风男
+            for hid in self.heroes:
+                if any(kl in t for t in self.hero_terms(hid) if not t.isascii()):
+                    return hid
+        return None
+
+    def official_hero(self, hero_id: str, allow_network: bool = True) -> dict | None:
+        result = self._official_hero(hero_id, allow_network)
+        if result is None:
+            return None
+        fixes = tencent.rarity_fixes()
+        if not any(row.get("id") in fixes and row.get("rarity") != fixes[row["id"]]
+                   for row in result.get("augments", [])):
+            return result
+        return {**result, "augments": [({**row, "rarity": fixes[row["id"]]} if row.get("id") in fixes else row)
+                                        for row in result.get("augments", [])]}
+
+    def _official_hero(self, hero_id: str, allow_network: bool = True) -> dict | None:
+        """单英雄官方数据：出装、加点、海克斯层级、原画。优先内存，再磁盘，过期则联网。"""
+        hero_id = str(hero_id)
+        if self.official is not None:
+            # 玩家模式只用整体资料快照；不触发腾讯请求，也不混入旧的逐英雄缓存。
+            return self.official.snapshot.heroes.get(hero_id)
+        with self._lock:
+            cached = self._heroes.get(hero_id)
+        path = self.root / "hero" / f"{hero_id}.json"
+        if cached is None:
+            cached = _read(path)
+        patch = self.static.get("patch")
+        fresh = cached and not self._stale(cached) and cached.get("patch") == patch and "splash" in cached
+        if not fresh and allow_network:
+            try:
+                data = tencent.parse_hero_hex(tencent.fetch_hero_hex(hero_id))
+                try:
+                    raw = tencent.fetch_hero_file(hero_id)
+                    data["spells"] = tencent.parse_hero_spells(raw)
+                    data["splash"] = tencent.parse_hero_splash(raw)
+                except Exception:
+                    data["spells"] = (cached or {}).get("spells", {})
+                    data["splash"] = (cached or {}).get("splash")
+                data["fetched_at"] = time.time()
+                data["patch"] = patch
+                _write(path, data)
+                cached = data
+            except Exception as e:
+                log.warning("获取英雄 %s 官方数据失败：%s", hero_id, e)
+                self.last_error = f"英雄 {hero_id}：{e}"
+        if cached is None:
+            cached = bundled_hero(hero_id)  # 本机没有缓存又连不上腾讯：用内置的（1.1.2）
+        if cached is None:
+            return None
+        with self._lock:
+            self._heroes[hero_id] = cached
+        return cached
+
+    # 统计数据由子类（PublicStore）提供；这里给出"没有统计"时的默认值
+    def hero(self, hero_id: str, allow_network: bool = True) -> dict | None:
+        return self.official_hero(hero_id, allow_network)
+
+    def win_data(self, hero_id: str, allow_network: bool = True) -> dict | None:
+        return None
+
+    def status(self) -> dict:
+        result = {
+            "patch": self.static.get("patch"),
+            "static_at": self.static.get("fetched_at"),
+            "augments": len(self.augments),
+            "heroes": len(self.heroes),
+            "error": self.last_error,
+        }
+        if self.official is not None:
+            result["official"] = self.official.status()
+        return result

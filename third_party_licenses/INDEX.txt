@@ -1,0 +1,83 @@
+AramHex 定制发行版第三方许可索引
+核对日期：2026-11-07
+
+这些副本保留各项目原版权署名和许可正文；AramHex 的 MIT 不会替代
+所依赖组件、统计数据、模型或游戏素材各自适用的许可。
+原 AramHex 版权与 MIT、数据 CC BY-NC 4.0 及素材声明分别见发行包
+根目录的 LICENSE、DATA-LICENSE.txt、NOTICE.md。定制版并非原作者、
+腾讯、Riot Games 或下列依赖作者的官方发行版，也不表示其背书。
+
+一、主要组件与位置
+
+组件                       版本           许可/声明目录
+Python                     3.13.16        Python/
+OpenSSL                    3.5.9          OpenSSL/
+Qt / PySide6 / Shiboken6    6.11.2         Qt/（见其中 README.txt）
+Requests                   2.34.2         Components/requests-2.34.2/
+RapidFuzz                  3.14.6         Components/rapidfuzz-3.14.6/
+NumPy                      2.5.3          Components/numpy-2.5.3/
+Pillow                     12.3.0         Components/pillow-12.3.0/
+MSS                        10.2.0         Components/mss-10.2.0/
+OpenCV Python              5.0.0.93       Components/opencv-python-5.0.0.93/
+RapidOCR                   3.9.2          Components/rapidocr-3.9.2/
+ONNX Runtime               1.30.0         Components/onnxruntime-1.30.0/
+Packaging                  26.3           Components/packaging-26.3/
+Setuptools                 84.0.0         Components/setuptools-84.0.0/
+OmegaConf                  2.4.0          Components/omegaconf-2.4.0/
+PyYAML                     6.0.3          Components/pyyaml-6.0.3/
+Shapely                    2.2.0          Components/shapely-2.2.0/
+GEOS                       3.14.1         Shapely 目录中的 LICENSE_GEOS
+Pyclipper                  1.4.0          Components/pyclipper-1.4.0/
+tqdm                       4.70.1         Components/tqdm-4.70.1/
+Colorlog                   6.12.0         Components/colorlog-6.12.0/
+Colorama                   0.4.6          Components/colorama-0.4.6/
+Certifi                    2026.7.22      Components/certifi-2026.7.22/
+Charset Normalizer         3.5.2          Components/charset-normalizer-3.5.2/
+IDNA                       3.20           Components/idna-3.20/
+urllib3                    2.8.0          Components/urllib3-2.8.0/
+PyInstaller                6.22.3         Components/pyinstaller-6.22.3/
+OCR 模型                   RapidOCR3.9.2  OCR-models/
+
+各目录的完整文本是适用条款的依据，不以本索引缩写代替：
+- NumPy、OpenCV、Pillow、ONNX Runtime 和 Setuptools 包含嵌套第三方声明；
+  顶层组件采用某一许可证，不代表其全部捆绑依赖使用相同许可证。
+- PyInstaller 的 COPYING.txt 包含 GPL 正文及 bootloader 特别例外。
+- Shapely 的 LICENSE_GEOS 包含 GEOS 的 LGPL 2.1 正文；Windows 运行库
+  原声明在 LICENSE_win32，不被本项目 MIT 重新授权。
+- Certifi、tqdm 的原包带 MPL 声明或链接，本目录 Common/MPL-2.0.txt
+  另附 Mozilla 发布的完整 MPL 2.0。两组件未由本定制版修改；其准确
+  版本的源代码地址及校验信息列在 SOURCE-ARCHIVES.json。
+- Qt LGPL/GPL、例外、嵌套声明、精确版本来源及可替换动态库说明见 Qt/。
+- OCR-models/README.txt 与 MODELS.json 说明三种模型的独立权利人、
+  转换来源和实测哈希，完整 Apache 许可附于同目录。
+
+二、核对方法与来源
+
+清单结合实际发行包内的 Python 模块、动态库版本、随包元数据和上游
+构建固定版本记录，不仅根据 requirements 列名。依赖库和模型未被
+本定制版改写。部分没有内嵌版本常量的模块以原构建锁定版本及分发包
+元数据对应，不代表对每个上游二进制进行了可复现构建认证。
+
+Components/ 下每个 SOURCE.json 给出组件版本、官方 PyPI 元数据、
+wheel 地址、取得的许可成员和 SHA-256。为减少下载量，只读取了所需
+ZIP 成员的 HTTPS 字节范围，成员 CRC 经核验；没有下载完整大 wheel，
+因此没有声称已验证它的整包 SHA-256。PyPI 提供的整包校验值保留作
+参考。RapidOCR wheel 没有许可成员，已从官方 v3.9.2 源码补齐全文。
+Python 许可来自相同版本的 Windows 运行时；OpenSSL 许可和作者表
+来自官方 openssl-3.5.9 标签。Qt 目录另行记录自己的取证方法。
+
+SOURCE-ARCHIVES.json 提供可用的官方精确版本 Python 源码分发地址；
+它不表示源代码归档已包含在本软件包中。Qt/README.txt 和 Shapely
+目录的 GEOS-SOURCE.txt 另列其底层库源码和替换方式。此发行版不增加
+禁止按相关许可证修改、调试、反向工程或替换这些库的限制。
+
+三、范围与维护
+
+本目录是可获得的许可、版权声明与来源记录的整理；不是第三方依赖
+全部源代码，也不替代 LGPL/MPL 等条款对源码提供、动态链接和后续
+再分发的具体义务。本次未重新编译上游动态库、未完成全供应链安全
+审计，也不把项目层面的署名声明当作独立授予全部游戏美术资源权利。
+
+更新任一依赖、模型或打包方式时，必须同步复核对应实际制品、完整
+声明、源码取得方式和本索引；不要仅沿用相近版本的许可或编造 URL。
+本许可目录不需要读取用户游戏数据、账号配置或发布凭据。

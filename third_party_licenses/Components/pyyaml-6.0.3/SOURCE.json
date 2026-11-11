@@ -1,0 +1,32 @@
+{
+  "package": "PyYAML",
+  "version": "6.0.3",
+  "status": "collected",
+  "metadata_url": "https://pypi.org/pypi/PyYAML/6.0.3/json",
+  "project_urls": {
+    "Bug Tracker": "https://github.com/yaml/pyyaml/issues",
+    "CI": "https://github.com/yaml/pyyaml/actions",
+    "Documentation": "https://pyyaml.org/wiki/PyYAMLDocumentation",
+    "Download": "https://pypi.org/project/PyYAML/",
+    "Homepage": "https://pyyaml.org/",
+    "Mailing lists": "http://lists.sourceforge.net/lists/listinfo/yaml-core",
+    "Source Code": "https://github.com/yaml/pyyaml"
+  },
+  "license_expression": null,
+  "license_metadata": "MIT",
+  "wheel_filename": "pyyaml-6.0.3-cp313-cp313-win_amd64.whl",
+  "wheel_url": "https://files.pythonhosted.org/packages/97/c9/39d5b874e8b28845e4ec2202b5da735d0199dbe5b8fb85f91398814a9a46/pyyaml-6.0.3-cp313-cp313-win_amd64.whl",
+  "wheel_size": 154090,
+  "wheel_sha256_from_pypi": "79005a0d97d5ddabfeeea4cf676af11e647e41d81c9a7722a193022accdb6b7c",
+  "whole_wheel_sha256_verified": false,
+  "retrieval": "anonymous direct HTTPS byte ranges; individual ZIP CRC verified; whole wheel not downloaded",
+  "transferred_bytes": 88554,
+  "files": [
+    {
+      "wheel_member": "pyyaml-6.0.3.dist-info/licenses/LICENSE",
+      "path": "Components/pyyaml-6.0.3/pyyaml-6.0.3.dist-info/licenses/LICENSE",
+      "size": 1101,
+      "sha256": "8d3928f9dc4490fd635707cb88eb26bd764102a7282954307d3e5167a577e8a4"
+    }
+  ]
+}

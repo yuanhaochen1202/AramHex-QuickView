@@ -1,0 +1,39 @@
+{
+  "package": "Shapely",
+  "version": "2.2.0",
+  "status": "collected",
+  "metadata_url": "https://pypi.org/pypi/Shapely/2.2.0/json",
+  "project_urls": {
+    "Documentation": "https://shapely.readthedocs.io/",
+    "Repository": "https://github.com/shapely/shapely"
+  },
+  "license_expression": "BSD-3-Clause",
+  "license_metadata": null,
+  "wheel_filename": "shapely-2.2.0-cp313-cp313-win_amd64.whl",
+  "wheel_url": "https://files.pythonhosted.org/packages/25/ed/7fcd625c9796e61d815ca9545d4e44a16f075f83869c1532206de88f23f1/shapely-2.2.0-cp313-cp313-win_amd64.whl",
+  "wheel_size": 1790191,
+  "wheel_sha256_from_pypi": "1eaa2cb64cdedaf65d6bc86f2819c9cd7d6d68f969aa3ebfdc93743ab581f437",
+  "whole_wheel_sha256_verified": false,
+  "retrieval": "anonymous direct HTTPS byte ranges; individual ZIP CRC verified; whole wheel not downloaded",
+  "transferred_bytes": 86255,
+  "files": [
+    {
+      "wheel_member": "shapely-2.2.0.dist-info/licenses/LICENSE.txt",
+      "path": "Components/shapely-2.2.0/shapely-2.2.0.dist-info/licenses/LICENSE.txt",
+      "size": 1612,
+      "sha256": "e8cd7d34604d2758ff589f0f34d6ed79c3f7fb14aaf5e12fb09221421391a3bf"
+    },
+    {
+      "wheel_member": "shapely-2.2.0.dist-info/licenses/LICENSE_GEOS",
+      "path": "Components/shapely-2.2.0/shapely-2.2.0.dist-info/licenses/LICENSE_GEOS",
+      "size": 27296,
+      "sha256": "7233baa9a7d4a17257b357706b7dbdc4b675e5ca45425b3418673b16990cf239"
+    },
+    {
+      "wheel_member": "shapely-2.2.0.dist-info/licenses/LICENSE_win32",
+      "path": "Components/shapely-2.2.0/shapely-2.2.0.dist-info/licenses/LICENSE_win32",
+      "size": 1180,
+      "sha256": "fdbb2abb8c598c8888755b52340bddcee38668a2def23e51e7d9e3f187bb8d51"
+    }
+  ]
+}

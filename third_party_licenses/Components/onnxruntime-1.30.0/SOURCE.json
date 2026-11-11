@@ -1,0 +1,34 @@
+{
+  "package": "onnxruntime",
+  "version": "1.30.0",
+  "status": "collected",
+  "metadata_url": "https://pypi.org/pypi/onnxruntime/1.30.0/json",
+  "project_urls": {
+    "Download": "https://github.com/microsoft/onnxruntime/tags",
+    "Homepage": "https://onnxruntime.ai"
+  },
+  "license_expression": null,
+  "license_metadata": "MIT License",
+  "wheel_filename": "onnxruntime-1.30.0-cp313-cp313-win_amd64.whl",
+  "wheel_url": "https://files.pythonhosted.org/packages/3c/dd/c57c529dbc6dd55eca24b12cfbeab1b6a690de72083824eca689085f55b0/onnxruntime-1.30.0-cp313-cp313-win_amd64.whl",
+  "wheel_size": 14311378,
+  "wheel_sha256_from_pypi": "4b63041bd623a9a9ac5e353948436c6fa7f43edd12d6b4a4ebc340bca959ba93",
+  "whole_wheel_sha256_verified": false,
+  "retrieval": "anonymous direct HTTPS byte ranges; individual ZIP CRC verified; whole wheel not downloaded",
+  "transferred_bytes": 155602,
+  "files": [
+    {
+      "wheel_member": "onnxruntime/LICENSE",
+      "path": "Components/onnxruntime-1.30.0/onnxruntime/LICENSE",
+      "size": 1094,
+      "sha256": "c250d6278f0b47a6439fb7592b08b58a55eb9f535aa49a1db63211c3f982b674"
+    },
+    {
+      "wheel_member": "onnxruntime/ThirdPartyNotices.txt",
+      "path": "Components/onnxruntime-1.30.0/onnxruntime/ThirdPartyNotices.txt",
+      "size": 344457,
+      "sha256": "c53a76501ef60db6f865f20599f220761201ac4057683acefdab37d861b86622"
+    }
+  ],
+  "supplemental_transferred_bytes": 155602
+}

@@ -1,0 +1,28 @@
+{
+  "package": "idna",
+  "version": "3.20",
+  "status": "collected",
+  "metadata_url": "https://pypi.org/pypi/idna/3.20/json",
+  "project_urls": {
+    "Changelog": "https://github.com/kjd/idna/blob/master/HISTORY.md",
+    "Issue tracker": "https://github.com/kjd/idna/issues",
+    "Source": "https://github.com/kjd/idna"
+  },
+  "license_expression": "BSD-3-Clause",
+  "license_metadata": null,
+  "wheel_filename": "idna-3.20-py3-none-any.whl",
+  "wheel_url": "https://files.pythonhosted.org/packages/58/a2/bb081bab032533a855d44de1d56f8e8426114ff1ba5d1f07a438a0a654f8/idna-3.20-py3-none-any.whl",
+  "wheel_size": 69583,
+  "wheel_sha256_from_pypi": "ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c",
+  "whole_wheel_sha256_verified": false,
+  "retrieval": "anonymous direct HTTPS byte ranges; individual ZIP CRC verified; whole wheel not downloaded",
+  "transferred_bytes": 69583,
+  "files": [
+    {
+      "wheel_member": "idna-3.20.dist-info/licenses/LICENSE.md",
+      "path": "Components/idna-3.20/idna-3.20.dist-info/licenses/LICENSE.md",
+      "size": 1541,
+      "sha256": "1a9a4f0e3d479a27240ddd59a9137a66ab4a0f9dfdc8ca6188cc0bfd85187f04"
+    }
+  ]
+}

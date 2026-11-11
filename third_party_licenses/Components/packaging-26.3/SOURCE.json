@@ -1,0 +1,39 @@
+{
+  "package": "packaging",
+  "version": "26.3",
+  "status": "collected",
+  "metadata_url": "https://pypi.org/pypi/packaging/26.3/json",
+  "project_urls": {
+    "Documentation": "https://packaging.pypa.io/",
+    "Source": "https://github.com/pypa/packaging"
+  },
+  "license_expression": "Apache-2.0 OR BSD-2-Clause",
+  "license_metadata": null,
+  "wheel_filename": "packaging-26.3-py3-none-any.whl",
+  "wheel_url": "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl",
+  "wheel_size": 129956,
+  "wheel_sha256_from_pypi": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+  "whole_wheel_sha256_verified": false,
+  "retrieval": "anonymous direct HTTPS byte ranges; individual ZIP CRC verified; whole wheel not downloaded",
+  "transferred_bytes": 64420,
+  "files": [
+    {
+      "wheel_member": "packaging-26.3.dist-info/licenses/LICENSE",
+      "path": "Components/packaging-26.3/packaging-26.3.dist-info/licenses/LICENSE",
+      "size": 197,
+      "sha256": "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48"
+    },
+    {
+      "wheel_member": "packaging-26.3.dist-info/licenses/LICENSE.APACHE",
+      "path": "Components/packaging-26.3/packaging-26.3.dist-info/licenses/LICENSE.APACHE",
+      "size": 10174,
+      "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+    },
+    {
+      "wheel_member": "packaging-26.3.dist-info/licenses/LICENSE.BSD",
+      "path": "Components/packaging-26.3/packaging-26.3.dist-info/licenses/LICENSE.BSD",
+      "size": 1344,
+      "sha256": "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5"
+    }
+  ]
+}

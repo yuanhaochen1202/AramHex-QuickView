@@ -1,0 +1,32 @@
+name: 测试
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUTF8: "1"
+  PYTHONIOENCODING: utf-8
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13.16"  # 和 1.0.0 一样；Python 一变 python313.dll 就变，老用户没法增量更新
+          cache: pip
+      - name: 安装依赖
+        run: python -m pip install -c packaging/constraints.txt -r requirements.txt
+      - name: 核对内置资料
+        run: python scripts/check_release_data.py
+      - name: 测试
+        env:
+          QT_QPA_PLATFORM: offscreen
+          ARAMHEX_HOME: ${{ runner.temp }}/aramhex-ci
+        run: python -m pytest -q

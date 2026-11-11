@@ -1,0 +1,14 @@
+{
+  "component": "CPython",
+  "version": "3.13.16",
+  "source": "LICENSE.txt distributed with the same CPython 3.13.16 Windows embeddable runtime used to build this distribution",
+  "project_url": "https://www.python.org/",
+  "license_url": "https://docs.python.org/3.13/license.html",
+  "files": [
+    {
+      "path": "Python/LICENSE.txt",
+      "size": 33861,
+      "sha256": "62bec384df47b0328307db41455ff6ea2559e5546b394ac69148561b21703120"
+    }
+  ]
+}

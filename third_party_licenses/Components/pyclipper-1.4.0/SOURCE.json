@@ -1,0 +1,26 @@
+{
+  "package": "pyclipper",
+  "version": "1.4.0",
+  "status": "collected",
+  "metadata_url": "https://pypi.org/pypi/pyclipper/1.4.0/json",
+  "project_urls": {
+    "Homepage": "https://github.com/fonttools/pyclipper"
+  },
+  "license_expression": null,
+  "license_metadata": "MIT",
+  "wheel_filename": "pyclipper-1.4.0-cp313-cp313-win_amd64.whl",
+  "wheel_url": "https://files.pythonhosted.org/packages/ba/42/0a1920d276a0e1ca21dc0d13ee9e3ba10a9a8aa3abac76cd5e5a9f503306/pyclipper-1.4.0-cp313-cp313-win_amd64.whl",
+  "wheel_size": 104007,
+  "wheel_sha256_from_pypi": "d4b2d7c41086f1927d14947c563dfc7beed2f6c0d9af13c42fe3dcdc20d35832",
+  "whole_wheel_sha256_verified": false,
+  "retrieval": "anonymous direct HTTPS byte ranges; individual ZIP CRC verified; whole wheel not downloaded",
+  "transferred_bytes": 38471,
+  "files": [
+    {
+      "wheel_member": "pyclipper-1.4.0.dist-info/licenses/LICENSE",
+      "path": "Components/pyclipper-1.4.0/pyclipper-1.4.0.dist-info/licenses/LICENSE",
+      "size": 1131,
+      "sha256": "73c25539e7fb486b834c33747d579e0bc56c0f984294c88f3cb2329420ba300f"
+    }
+  ]
+}

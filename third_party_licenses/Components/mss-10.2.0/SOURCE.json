@@ -1,0 +1,32 @@
+{
+  "package": "mss",
+  "version": "10.2.0",
+  "status": "collected",
+  "metadata_url": "https://pypi.org/pypi/mss/10.2.0/json",
+  "project_urls": {
+    "Changelog": "https://python-mss.readthedocs.io/latest/history.html",
+    "Documentation": "https://python-mss.readthedocs.io",
+    "Homepage": "https://github.com/BoboTiG/python-mss",
+    "Released Versions": "https://github.com/BoboTiG/python-mss/releases",
+    "Source": "https://github.com/BoboTiG/python-mss",
+    "Sponsor": "https://github.com/sponsors/BoboTiG",
+    "Tracker": "https://github.com/BoboTiG/python-mss/issues"
+  },
+  "license_expression": null,
+  "license_metadata": "MIT License\n        Copyright (c) 2013-2026, Mickaël 'Tiger-222' Schoentgen\n        \n        Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:\n        \n        The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.\n        \n        THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.",
+  "wheel_filename": "mss-10.2.0-py3-none-any.whl",
+  "wheel_url": "https://files.pythonhosted.org/packages/f2/c3/313e14f245c79b4c05bd0f3a84a4813aa26fa10f8993aebd91d04c5fad3f/mss-10.2.0-py3-none-any.whl",
+  "wheel_size": 67106,
+  "wheel_sha256_from_pypi": "e79f428899280e7e64e38365b5bfed683851ebea807eeaeadaf06eb8e0d67197",
+  "whole_wheel_sha256_verified": false,
+  "retrieval": "anonymous direct HTTPS byte ranges; individual ZIP CRC verified; whole wheel not downloaded",
+  "transferred_bytes": 67106,
+  "files": [
+    {
+      "wheel_member": "mss-10.2.0.dist-info/licenses/LICENSE.txt",
+      "path": "Components/mss-10.2.0/mss-10.2.0.dist-info/licenses/LICENSE.txt",
+      "size": 1093,
+      "sha256": "479b38354134f96c0b5f84e5449ae3497c1c585594bcca48a1164e8b819c8c38"
+    }
+  ]
+}

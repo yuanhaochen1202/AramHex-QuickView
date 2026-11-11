@@ -1,0 +1,26 @@
+{
+  "package": "colorlog",
+  "version": "6.12.0",
+  "status": "collected",
+  "metadata_url": "https://pypi.org/pypi/colorlog/6.12.0/json",
+  "project_urls": {
+    "Homepage": "https://github.com/borntyping/python-colorlog"
+  },
+  "license_expression": null,
+  "license_metadata": "MIT License",
+  "wheel_filename": "colorlog-6.12.0-py3-none-any.whl",
+  "wheel_url": "https://files.pythonhosted.org/packages/d4/19/0b6647bf5e331521e55d2b63bfbdc210bd9cd605189273f03614a05f702d/colorlog-6.12.0-py3-none-any.whl",
+  "wheel_size": 12239,
+  "wheel_sha256_from_pypi": "30d392604e9110045a2c2aeefc27d7a017abbab63f3a8aee594eac0801df784e",
+  "whole_wheel_sha256_verified": false,
+  "retrieval": "anonymous direct HTTPS byte ranges; individual ZIP CRC verified; whole wheel not downloaded",
+  "transferred_bytes": 12239,
+  "files": [
+    {
+      "wheel_member": "colorlog-6.12.0.dist-info/licenses/LICENSE",
+      "path": "Components/colorlog-6.12.0/colorlog-6.12.0.dist-info/licenses/LICENSE",
+      "size": 1107,
+      "sha256": "b1d9082bc483623fd59fc7279b457f0e40d942a76426cde257239e04dfe4125a"
+    }
+  ]
+}

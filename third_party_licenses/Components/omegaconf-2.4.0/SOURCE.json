@@ -1,0 +1,32 @@
+{
+  "package": "omegaconf",
+  "version": "2.4.0",
+  "status": "collected",
+  "metadata_url": "https://pypi.org/pypi/omegaconf/2.4.0/json",
+  "project_urls": {
+    "Homepage": "https://github.com/hydra-ecosystem/omegaconf"
+  },
+  "license_expression": null,
+  "license_metadata": null,
+  "wheel_filename": "omegaconf-2.4.0-py3-none-any.whl",
+  "wheel_url": "https://files.pythonhosted.org/packages/4f/bd/0d9f8247b0819385213d09564eda5c52d3673313c2414d51f72883ec24cd/omegaconf-2.4.0-py3-none-any.whl",
+  "wheel_size": 254152,
+  "wheel_sha256_from_pypi": "f141a664c777582405e3cc6e0545ecc79429e79f844995b1a6e71c35946a025c",
+  "whole_wheel_sha256_verified": false,
+  "retrieval": "anonymous direct HTTPS byte ranges; individual ZIP CRC verified; whole wheel not downloaded",
+  "transferred_bytes": 57544,
+  "files": [
+    {
+      "wheel_member": "omegaconf-2.4.0.dist-info/licenses/LICENSE",
+      "path": "Components/omegaconf-2.4.0/omegaconf-2.4.0.dist-info/licenses/LICENSE",
+      "size": 1518,
+      "sha256": "b31375ed5d5cbe7ec2d0c4c14df8afa7a8e5501bbe25f70b6cbc461685f4b91a"
+    },
+    {
+      "wheel_member": "omegaconf-2.4.0.dist-info/licenses/ATTRIBUTION/LICENSE-antlr4",
+      "path": "Components/omegaconf-2.4.0/omegaconf-2.4.0.dist-info/licenses/ATTRIBUTION/LICENSE-antlr4",
+      "size": 1480,
+      "sha256": "3db1fb3ee79a4b4f9918fc4d0f6133bf18a3cf787f126cd22f8aa9b862281c0c"
+    }
+  ]
+}

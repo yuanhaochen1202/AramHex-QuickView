@@ -1,0 +1,29 @@
+{
+  "package": "tqdm",
+  "version": "4.70.1",
+  "status": "collected",
+  "metadata_url": "https://pypi.org/pypi/tqdm/4.70.1/json",
+  "project_urls": {
+    "changelog": "https://tqdm.github.io/releases",
+    "homepage": "https://tqdm.github.io",
+    "repository": "https://github.com/tqdm/tqdm",
+    "wiki": "https://github.com/tqdm/tqdm/wiki"
+  },
+  "license_expression": null,
+  "license_metadata": "MPL-2.0 AND MIT",
+  "wheel_filename": "tqdm-4.70.1-py3-none-any.whl",
+  "wheel_url": "https://files.pythonhosted.org/packages/a7/03/921a3d3c75785aca9ebfbfcabfbc3a1be12e2ab5265deb026d55a5a3f83e/tqdm-4.70.1-py3-none-any.whl",
+  "wheel_size": 80199,
+  "wheel_sha256_from_pypi": "c293e525e6fef9c20e8728fd4612df02a0aa31bb5fe91ecd93e123b1b7bffa73",
+  "whole_wheel_sha256_verified": false,
+  "retrieval": "anonymous direct HTTPS byte ranges; individual ZIP CRC verified; whole wheel not downloaded",
+  "transferred_bytes": 80199,
+  "files": [
+    {
+      "wheel_member": "tqdm-4.70.1.dist-info/licenses/LICENCE",
+      "path": "Components/tqdm-4.70.1/tqdm-4.70.1.dist-info/licenses/LICENCE",
+      "size": 1985,
+      "sha256": "fcff87c3a47ce8028a8512aa182d4fcf0ad1c90544ee75cf9b343684cac194de"
+    }
+  ]
+}

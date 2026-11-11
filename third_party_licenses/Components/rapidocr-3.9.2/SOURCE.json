@@ -1,0 +1,29 @@
+{
+  "package": "rapidocr",
+  "version": "3.9.2",
+  "status": "collected_from_official_source_tag",
+  "metadata_url": "https://pypi.org/pypi/rapidocr/3.9.2/json",
+  "project_urls": {
+    "Changelog": "https://github.com/RapidAI/RapidOCR/releases",
+    "Documentation": "https://rapidai.github.io/RapidOCRDocs"
+  },
+  "license_expression": "Apache-2.0",
+  "license_metadata": null,
+  "wheel_filename": "rapidocr-3.9.2-py3-none-any.whl",
+  "wheel_url": "https://files.pythonhosted.org/packages/55/ed/0ee9b9281986974be9d2406ae0134c8d7c91d2fc613f16ffda9701eeda6f/rapidocr-3.9.2-py3-none-any.whl",
+  "wheel_size": 27275208,
+  "wheel_sha256_from_pypi": "04d6b8d151f823d930bd91910555f57bea897c0c44fa6794267b94cf9c1ef9a0",
+  "whole_wheel_sha256_verified": false,
+  "retrieval": "anonymous direct HTTPS byte ranges; individual ZIP CRC verified; whole wheel not downloaded",
+  "transferred_bytes": 12232,
+  "files": [
+    {
+      "path": "Components/rapidocr-3.9.2/LICENSE",
+      "size": 11422,
+      "sha256": "3e0af25fdd06aa9586ae97adb00ea927ebe5a3805ac77d2d3a81ce5f55693333",
+      "source_url": "https://github.com/RapidAI/RapidOCR/blob/v3.9.2/LICENSE",
+      "github_blob_sha": "ab68e50ab2d0af41c9c8c30947a694a6285cde3f"
+    }
+  ],
+  "supplement_note": "Exact-version wheel omitted its license member; the full license was obtained from the official v3.9.2 source tag."
+}

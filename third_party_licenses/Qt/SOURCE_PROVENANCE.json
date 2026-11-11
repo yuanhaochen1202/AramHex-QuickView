@@ -1,0 +1,45 @@
+{
+  "version": "6.11.2",
+  "verified_qt_dll_file_version": "6.11.2.0",
+  "verified_modules": [
+    "QtCore",
+    "QtGui",
+    "QtNetwork",
+    "QtWidgets",
+    "QtSvg"
+  ],
+  "packages": [
+    {
+      "package": "pyside6-essentials",
+      "version": "6.11.2",
+      "pypi_metadata_url": "https://pypi.org/pypi/pyside6-essentials/6.11.2/json",
+      "official_wheel_url": "https://files.pythonhosted.org/packages/dc/09/d2662684aee4d3f027ff9b1e965f22301bc28ffc5b7f167658508e4475dc/pyside6_essentials-6.11.2-cp310-abi3-win_amd64.whl",
+      "whole_wheel_bytes": 76913043,
+      "expected_whole_wheel_sha256_from_pypi": "c8a29def77032773a30879f7f24415b5395ad08592d147c170824ef4c735dfc1",
+      "whole_wheel_downloaded": false,
+      "whole_wheel_sha256_verified": false,
+      "method": "Bounded direct HTTPS Range; extracted entries checked by ZIP CRC",
+      "bytes_transferred": 267788,
+      "metadata_file": "PySide6_Essentials-METADATA.txt",
+      "metadata_sha256": "a9bdd4937ee837eb46e0c38f9c0ab6c59a6f788d711b96b63c726247ca7a2379"
+    },
+    {
+      "package": "shiboken6",
+      "version": "6.11.2",
+      "pypi_metadata_url": "https://pypi.org/pypi/shiboken6/6.11.2/json",
+      "official_wheel_url": "https://files.pythonhosted.org/packages/ce/6b/fee1b4814317e4664e318644c9c007676c65a71e5b2b9d3ac4121a94dc0a/shiboken6-6.11.2-cp310-abi3-win_amd64.whl",
+      "whole_wheel_bytes": 1226578,
+      "expected_whole_wheel_sha256_from_pypi": "6ab0eba1c904455df621f9a6df3ca2bb896bab8670572d2bc4e37804ae91f19a",
+      "whole_wheel_downloaded": false,
+      "whole_wheel_sha256_verified": false,
+      "method": "Bounded direct HTTPS Range; extracted entries checked by ZIP CRC",
+      "bytes_transferred": 6937,
+      "metadata_file": "Shiboken6-METADATA.txt",
+      "metadata_sha256": "d118511674eb858e7e0666fae0de10ac79ae31800ad1215ad57285953d4ad241"
+    }
+  ],
+  "full_corresponding_sources_downloaded": false,
+  "source_to_binary_rebuild_verified": false,
+  "source_link_check": "Official version tags and archive directory listings were accessible; source archives were not downloaded.",
+  "license_source_file_count": 107
+}

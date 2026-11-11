@@ -1,0 +1,10 @@
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.iss text eol=crlf
+*.isl -text
+*.png binary
+*.ico binary
+# 内置统计数据按原样保存：latest.json 里记的 SHA-256 必须和文件字节一致
+lolhex/data/bundled/** -text
+# Distribution checksum manifests cover the original third-party license bytes.
+third_party_licenses/** -text

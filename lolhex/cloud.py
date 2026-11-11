@@ -1,0 +1,364 @@
+"""原作者的数据配置；本地版只接收数据字段，不接收程序/识别设置控制。
+
+旧 cloud.json 缓存和新网络响应都经过同一白名单。保留统计数据、官方资料、
+活动、海克斯名称/稀有度资料，以及已有的查分服务；不接收设置、功能开关、
+布局、公告、安装地址和日志上传请求。下面保留原配置格式说明，便于同步上游。
+
+    downloads   网盘链接 {setup, portable}（每次发版会换）
+    community   社区入口列表 [{name, text, url, qr, primary}]：QQ 群、B 站、赞助……
+                软件「关于」里全部列出；primary 的那条在主界面顶部显示成按钮（网站同理）
+    notice      公告 {id, text, url}：同一个 id 只弹一次
+    min_version 低于这个版本必须更新
+    rank        查分 {enabled, api, message}：可以远程关掉查询
+    event       当前活动 {mode, label, start, end}：例如 first-prismatic「首次必棱彩」，活动期间改用这个规则的统计数据
+    mirrors     额外线路 {update: [".../{version}"], data: [...]}：换服务器、加线路不用发版，排在内置线路前面
+    features    功能开关 {名字: true/false}（1.1.2）：新做法出问题时云控关掉、退回 1.1.1 的老做法，不用发版。
+                没写 / 连不上 = 开。title_priority 整块扫描先读标题；same_name_once 同一行同名海克斯只算一张；
+                overlay_fit 分数缩放时浮层收回多出的 1 像素、不反复重摆；cards_drop_early 选完英雄卡马上撤卡下胜率；
+                companion_last_fg 客户端被别的程序盖着时点浮窗，不再把标注画到那个程序上
+    update      检查频率和分批推送（1.1.0 起）：
+                  check_minutes   多久查一次云控和新版本（默认 180，30–1440）；启动时、手动「检查更新」照常查
+                  data_minutes    多久查一次统计数据（默认 360，60–1440）
+                  official_minutes 官方资料检查（0 关闭，60 一小时，43200 三十天）；只从 mirrors.official 更新
+                  rollout_version / rollout_percent  这个版本先只提示一部分人（0–100）。按本机随机编号分组，
+                                  同一台电脑分组固定，把比例调大，之前提示过的人仍在里面
+                  paused          true 时暂停提示新版本（发现问题时用）；「最低版本」和手动检查不受影响
+
+    site        数据服务地址（1.1.3）{urls: ["https://新域名"]}：配置、数据镜像和查分可迁移；
+                软件链接和程序更新不受影响。内置 aramhex.com、aramhex.cn 兜底，只收 https://域名[:端口]，最多 3 个。
+
+连不上就用上次存下的（app_home/cloud.json），再没有就用内置默认值。
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import math
+import re
+import threading
+import unicodedata
+
+import requests
+
+from . import BACKUP_SITES, WEBSITE, __version__
+from .config import app_home
+
+log = logging.getLogger(__name__)
+URL = f"{WEBSITE}/config.json"
+DEFAULT = {
+    "downloads": {},
+    "community": [],
+    "notice": {},
+    "min_version": "",
+    # as_of：查分库最新数据的日期（1.1.1）；比本机上次查到的新，就自动重查一次
+    "rank": {"enabled": True, "api": f"{WEBSITE}/api/rank", "message": "", "as_of": ""},
+    "event": {"mode": "", "label": "", "start": "", "end": ""},
+    "mirrors": {"update": [], "data": [], "official": []},
+    "features": {},
+    "augments": {"aliases": {}, "rarity_fix": {}},
+    "update": {"check_minutes": 180, "data_minutes": 360, "official_minutes": 0, "rollout_version": "", "rollout_percent": 100,
+               "paused": False},
+    # 大厅里助手图标的位置（客户端 1280×720 下的像素，按窗口高度等比例）：图标中心离右边、离上边，直径。
+    # 默认在头像右边「在线」那一行、铃铛左边；客户端改版挪了位置时云控改这三个数就行
+    "ui": {"client_badge_right": 60, "client_badge_top": 53, "client_badge_size": 26},
+    "settings": [],  # 云控设置规则，见 cloudsettings.py
+    "site": {"urls": []},
+}
+_SITE_RE = re.compile(r"https://[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+(:[0-9]{1,5})?")
+_lock = threading.Lock()
+_cache: dict | None = None
+
+
+def headers(url: str = "", **extra) -> dict:
+    """保留版本和业务请求头；任何服务请求都不附带安装编号或日志单号。"""
+    return {"User-Agent": f"aramhex/{__version__}",
+            **{k: v for k, v in extra.items()
+               if k.lower() not in {"x-aramhex-id", "x-aramhex-ticket"}}}
+
+
+def _path():
+    return app_home() / "cloud.json"
+
+
+def _num(v, default: float) -> float:
+    """云控里的数：认不出、无穷大、NaN 都按默认值（写错一个数不能让程序起不来）。"""
+    if isinstance(v, bool):
+        return default
+    try:
+        f = float(v)
+    except (TypeError, ValueError, OverflowError):
+        return default
+    return f if math.isfinite(f) else default
+
+
+def _coerce(default, v):
+    """字典里的一项按默认值的类型收下：bool 只认 true/false，数按 _num，其余转成字符串。"""
+    if isinstance(default, bool):
+        return v if isinstance(v, bool) else default
+    if isinstance(default, (int, float)):
+        return _num(v, default)
+    return str(v)
+
+
+# 这些字典里的值都是文字（公告、网盘链接）；features 是开关
+_STR_DICTS = ("notice", "downloads")
+
+
+def _augment_rules(raw) -> dict:
+    """可选热修：每类最多 128 个 ID；每 ID 最多 8 个别名，总共最多 512 个。"""
+    out = {"aliases": {}, "rarity_fix": {}}
+    if not isinstance(raw, dict):
+        log.info("云控海克斯：augments 必须是对象，忽略")
+        return out
+    for field in out:
+        entries = raw.get(field, {})
+        if not isinstance(entries, dict):
+            log.info("云控海克斯：%s 必须是对象，忽略", field)
+            continue
+        count = 0
+        for index, (aid, value) in enumerate(entries.items()):
+            if index >= 128:
+                log.info("云控海克斯：%s 超过 128 项，忽略剩余项", field)
+                break
+            valid_id = isinstance(aid, str) and re.fullmatch(r"[1-9][0-9]{0,8}", aid)
+            if field == "aliases":
+                valid = (isinstance(value, list) and len(value) <= 8
+                         and all(isinstance(n, str) and 1 <= len(n.strip()) <= 64
+                                 and not any(unicodedata.category(c).startswith("C") for c in n)
+                                 for n in value))
+                if valid:
+                    value = list(dict.fromkeys(n.strip() for n in value))
+                    if count + len(value) > 512:
+                        log.info("云控海克斯：别名超过 512 个，忽略剩余项")
+                        break
+            else:
+                valid = isinstance(value, str) and value in ("silver", "gold", "prismatic")
+            if not valid_id or not valid:
+                log.info("云控海克斯：%s 第 %d 项格式不对，忽略", field, index + 1)
+                continue
+            out[field][aid] = value
+            if field == "aliases":
+                count += len(value)
+    return out
+
+
+def _site_urls(raw) -> list[str]:
+    """云控 site.urls：只收 https://域名[:端口]（不带路径），去掉结尾的 /，最多 3 个。"""
+    urls = (raw.get("urls") if isinstance(raw, dict) else None) or []
+    if not isinstance(urls, list):
+        return []
+    out = []
+    for u in urls:
+        u = u.strip().rstrip("/").lower() if isinstance(u, str) else ""
+        if _SITE_RE.fullmatch(u) and u not in out and u != WEBSITE:
+            out.append(u)
+    return out[:3]
+
+
+def _with_builtin(urls: list[str]) -> list[str]:
+    """云控地址在前，再接内置的 aramhex.com 和备用官网，去重。"""
+    return list(dict.fromkeys(urls + [WEBSITE, *BACKUP_SITES]))
+
+
+def _owns(url: str, sites: list[str]) -> bool:
+    return any(url.startswith(s + "/") for s in sites)
+
+
+def _data_fields(raw: dict) -> dict:
+    """只允许资料变动；不可用上游 config.json 改本地行为或重新开放程序升级。"""
+    if not isinstance(raw, dict):
+        return {}
+    out = {key: raw[key] for key in ("site", "event", "augments") if key in raw}
+    for key, allowed in (
+        ("mirrors", ("data", "official")),
+        ("update", ("data_minutes", "official_minutes")),
+        # 已有查分功能是保留的在线服务例外，不是软件更新通道。
+        ("rank", ("enabled", "api", "message", "as_of")),
+    ):
+        value = raw.get(key)
+        if isinstance(value, dict):
+            out[key] = {name: value[name] for name in allowed if name in value}
+    return out
+
+
+def _merge(raw: dict) -> dict:
+    raw = _data_fields(raw)
+    out = json.loads(json.dumps(DEFAULT))
+    if not isinstance(raw, dict):
+        return out
+    out["site"]["urls"] = _site_urls(raw.get("site"))
+    sites = _with_builtin(out["site"]["urls"])
+    # 换了官网地址、又没单独写查分地址：跟着新地址走
+    out["rank"]["api"] = f"{sites[0]}/api/rank"
+    for k, v in raw.items():
+        if k == "site":
+            continue
+        if k == "augments":
+            out[k] = _augment_rules(v)
+        elif k == "community" and isinstance(v, list):
+            items = []
+            for it in v[:8]:
+                if not isinstance(it, dict) or not str(it.get("name") or "").strip():
+                    continue
+                url = str(it.get("url") or "")
+                qr = str(it.get("qr") or "")
+                items.append({"name": str(it["name"]).strip()[:20], "text": str(it.get("text") or "").strip()[:40],
+                              "url": url if url.startswith(("https://", "http://")) else "",
+                              "qr": qr if qr.startswith("https://") else "", "primary": bool(it.get("primary"))})
+            out[k] = items
+        elif k == "settings" and isinstance(v, (dict, list)):
+            # 云控设置规则（见 cloudsettings.py）：原样留着，用的时候逐项检查
+            out[k] = [r for r in (v if isinstance(v, list) else [v]) if isinstance(r, dict)][:20]
+        elif k == "mirrors" and isinstance(v, dict):
+            for kk in ("update", "data", "official"):
+                urls = v.get(kk)
+                if isinstance(urls, list):
+                    out[k][kk] = [u for u in urls if isinstance(u, str) and u.startswith("https://")][:5]
+        elif k in out and isinstance(out[k], dict) and isinstance(v, dict):
+            for kk, vv in v.items():
+                if not isinstance(vv, (str, bool, int, float)):
+                    continue
+                if kk in out[k]:
+                    out[k][kk] = _coerce(out[k][kk], vv)
+                elif k in _STR_DICTS:
+                    out[k][kk] = str(vv)
+                elif k == "features":
+                    if isinstance(vv, bool):
+                        out[k][kk] = vv
+                else:
+                    out[k][kk] = vv
+        elif k in out and not isinstance(out[k], (dict, list)) and isinstance(v, (str, int, float)):
+            out[k] = str(v)
+    return out
+
+
+def get() -> dict:
+    """当前配置（不联网）。"""
+    global _cache
+    with _lock:
+        if _cache is None:
+            try:
+                _cache = _merge(json.loads(_path().read_text(encoding="utf-8")))
+            except Exception:  # 存下的云控坏了：按内置默认值，下次联网再取
+                _cache = _merge({})
+        return _cache
+
+
+def sites() -> list[str]:
+    """官网地址：云控 site.urls 在前，内置 aramhex.com、备用官网永远在最后。"""
+    return _with_builtin((get().get("site") or {}).get("urls", []))
+
+
+def site() -> str:
+    """原项目介绍页固定使用内置地址；数据域名迁移不改软件里的链接。"""
+    return WEBSITE
+
+
+def own(url: str) -> bool:
+    """是不是发往原项目数据服务的请求。"""
+    return _owns(url, sites())
+
+
+def mirrors(kind: str) -> list[str]:
+    """云控里的额外线路（update 里的 {version} 由调用方替换）。"""
+    return list((get().get("mirrors") or {}).get(kind) or [])
+
+
+def community() -> list[dict]:
+    return list(get().get("community") or [])
+
+
+def primary_link() -> dict | None:
+    """主界面顶部按钮：第一条标了 primary 且有链接的。"""
+    return next((c for c in community() if c.get("primary") and c.get("url")), None)
+
+
+def event() -> dict | None:
+    """正在进行的活动 {mode, label}；没有返回 None。start / end 是带时区的 ISO 时间，空着表示不限。"""
+    from datetime import datetime, timezone
+    ev = get().get("event") or {}
+    mode = str(ev.get("mode") or "").strip()
+    if not mode or mode == "normal":
+        return None
+    now = datetime.now(timezone.utc)
+    try:
+        if ev.get("start") and now < datetime.fromisoformat(ev["start"]):
+            return None
+        if ev.get("end") and now >= datetime.fromisoformat(ev["end"]):
+            return None
+    except ValueError:
+        return None
+    return {"mode": mode, "label": str(ev.get("label") or mode)}
+
+
+def _minutes(key: str, default: int, lo: int, hi: int) -> int:
+    v = int(_num((get().get("update") or {}).get(key, default), default))
+    return max(lo, min(hi, v))
+
+
+def check_minutes() -> int:
+    """本地固定每三小时检查数据配置和原项目版本信息。"""
+    return 180
+
+
+def data_minutes() -> int:
+    """多久查一次统计数据（分钟）。"""
+    return _minutes("data_minutes", 360, 60, 1440)
+
+
+def official_minutes() -> int:
+    """官方资料检查间隔：0 关闭，60 一小时，43200 三十天。"""
+    v = _num((get().get("update") or {}).get("official_minutes", 0), 0)
+    return max(0, min(43200, int(v)))
+
+
+def bucket(install_id: str | None) -> int:
+    """本机分组 0–99：按安装时生成的随机编号算，只在本机用。没有编号的算最后一组。"""
+    import hashlib
+    if not install_id:
+        return 99
+    return int(hashlib.sha256(install_id.encode()).hexdigest()[:8], 16) % 100
+
+
+def offer_update(version: str, install_id: str | None) -> bool:
+    """定时检查查到新版本后，要不要提示这台电脑（分批推送、暂停）。"""
+    u = get().get("update") or {}
+    if u.get("paused") is True:  # 只认 true；写成 "false"、"no" 这类文字不算暂停
+        return False
+    if str(u.get("rollout_version") or "").lstrip("vV") != str(version).lstrip("vV"):
+        return True
+    pct = int(_num(u.get("rollout_percent", 100), 100))
+    return bucket(install_id) < max(0, min(100, pct))
+
+
+def feature(name: str, default: bool = True) -> bool:
+    v = (get().get("features") or {}).get(name)
+    return default if v is None else bool(v)
+
+
+def refresh(timeout: float = 6, url: str | None = None) -> dict:
+    """联网取最新配置并存下来；失败就返回上次的。没指定地址时按 sites() 的顺序一个个试（云控换的新官网在前）。"""
+    global _cache
+    raw = None
+    for u in [url] if url else [f"{s}/config.json" for s in sites()]:
+        try:
+            r = requests.get(u, headers=headers(u), timeout=timeout)
+            r.raise_for_status()
+            raw = r.json()
+            if not isinstance(raw, dict):
+                raise ValueError("格式不对")
+            break
+        except (requests.RequestException, ValueError) as e:
+            log.info("取云控配置失败：%s %s", u, e)
+            raw = None
+    if raw is None:
+        return get()
+    cfg = _merge(raw)
+    with _lock:
+        _cache = cfg
+    try:
+        _path().write_text(json.dumps(_data_fields(cfg), ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
+    return cfg

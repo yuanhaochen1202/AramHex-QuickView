@@ -1,0 +1,504 @@
+"""增量更新：只下载新版本里变了的几个文件（通常是程序本体和内置数据，约 10–20MB），不用重下完整安装包。
+
+发版时 GitHub Actions 把新版本的文件清单和"会变的文件"推到本仓库的 updates 分支：
+    manifest.json        {"schema_version": 1, "version", "encoding": "gzip", "files": {相对路径: {sha256, size}},
+                          "patchable": [相对路径]}
+    files/<相对路径>.gz   patchable 里的文件（AramHex.exe、_internal/base_library.zip、_internal/lolhex/**）的 gzip 压缩版。
+                          jsDelivr 不给下 .exe（403），压缩后就可以；SHA-256 校验的是解压后的原文件。
+    files/<相对路径>      原文件，给 1.0.3（只认原文件）从 GitHub 下载用
+GitHub 和 jsDelivr 都能读这个分支，国内连不上 GitHub 时走 jsDelivr（单个文件 ≤20MB，整个分支 ≤150MB）。
+
+程序这边：
+1. 读清单，确认版本号就是要更新到的版本（jsDelivr 有缓存，旧清单就换下一个地址）；
+2. 和本机文件逐个比 SHA-256。变了的文件都在 patchable 里就能增量更新；
+   第三方库也变了（例如升级 Qt）就不行，退回下载完整安装包；
+3. 下载变了的文件到程序目录下的 _update_new，逐个校验；
+4. 助手退出后，由一个 PowerShell 小脚本替换文件：先把旧文件挪到 _update_old，任何一步失败就全部挪回去，
+   最后重新打开助手。安装版和便携版都能用（程序目录都在用户目录下，不需要管理员权限）。
+"""
+
+from __future__ import annotations
+
+import gzip
+import hashlib
+import json
+import logging
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from urllib.parse import unquote
+
+import requests
+
+from . import GITHUB_REPO, cloud
+from .config import program_dir
+
+log = logging.getLogger(__name__)
+BRANCH = "updates"
+JSD_HOSTS = ("fastly.jsdelivr.net", "gcore.jsdelivr.net", "cdn.jsdelivr.net")
+
+
+def tag_for(version: str) -> str:
+    """发版时给这一版的增量更新文件打的 tag。jsDelivr 对分支名的解析会缓存好几个小时（推送后还拿到旧清单），
+    按 tag 取则立即是新的，所以下载一律按 tag。"""
+    return f"updates-v{version}"
+
+
+def sources_for(version: str) -> list[str]:
+    from . import cloud
+    tag = tag_for(version)
+    extra = [u.replace("{version}", version).rstrip("/") for u in cloud.mirrors("update")]
+    site = [f"{s}/u/{version}" for s in cloud.sites()]  # 云控换了官网地址时新的在前，内置 aramhex.com/u 在最后
+    return (extra + site + [f"https://raw.githubusercontent.com/{GITHUB_REPO}/{tag}"]
+            + [f"https://{host}/gh/{GITHUB_REPO}@{tag}" for host in JSD_HOSTS]
+            # 分支地址兜底（1.0.3 发布时还没有 tag）；清单版本对不上会被跳过
+            + [f"https://raw.githubusercontent.com/{GITHUB_REPO}/{BRANCH}"]
+            + [f"https://{host}/gh/{GITHUB_REPO}@{BRANCH}" for host in JSD_HOSTS])
+
+
+SOURCES = sources_for("0")  # 只用作默认值的形状；实际按要更新到的版本取 sources_for(version)
+# 会随我们发版变化的文件；其余都是第三方库（Qt、OpenCV、识别模型……），变了就要完整安装包
+PATCHABLE_PREFIXES = ("AramHex.exe", "_internal/base_library.zip", "_internal/lolhex/")
+STAGING, BACKUP = "_update_new", "_update_old"
+ROLLBACK_INCOMPLETE = "update-rollback-incomplete.txt"  # 有这个文件就说明旧文件没全部还原，_update_old 不能删
+UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\{1107079E-6C48-46FD-938D-04B1C3EA9A72}_is1"
+
+
+class NotWritable(Exception):
+    """软件所在的文件夹不能写入（比如装在 Program Files）：增量更新放不了文件，只能手动下载安装。"""
+
+
+class NeedFullInstall(Exception):
+    """这次更新不能增量完成（第三方库变了、清单拿不到等），要下载完整安装包。"""
+
+
+class IncompleteRollback(NeedFullInstall):
+    """保留未完成回滚的备份，交由完整安装恢复。"""
+
+
+# _internal 下的 VC++ 运行库是打包时从打包机的系统目录收进来的（1.0.0 的 msvcp140.dll 是 14.51），
+# GitHub 的 Windows 构建机更新系统就会变；每个不到 1MB，也放进增量更新
+VC_RUNTIME = {f"_internal/{n}" for n in ("msvcp140.dll", "msvcp140_1.dll", "msvcp140_2.dll",
+                                         "vcruntime140.dll", "vcruntime140_1.dll")}
+
+
+def is_patchable(rel: str) -> bool:
+    # 第三方库的 *.dist-info/ 是安装记录（RECORD 等），每次重新 pip install 内容都会变，但不影响运行；
+    # 一共只有约 0.3MB，也放进增量更新，免得因为它们就要重下完整安装包
+    return (rel == PATCHABLE_PREFIXES[0] or rel == PATCHABLE_PREFIXES[1] or rel.startswith(PATCHABLE_PREFIXES[2])
+            or ".dist-info/" in rel or rel.lower() in VC_RUNTIME)
+
+
+def sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def build_manifest(root: Path, version: str) -> dict:
+    """发版用：扫描打包好的程序目录，生成清单。"""
+    root = Path(root)
+    files = {}
+    for p in sorted(root.rglob("*")):
+        if p.is_file():
+            rel = p.relative_to(root).as_posix()
+            files[rel] = {"sha256": sha256_file(p), "size": p.stat().st_size}
+    return {"schema_version": 1, "version": version, "files": files,
+            "patchable": [rel for rel in files if is_patchable(rel)]}
+
+
+def _relative_path(rel: str) -> str:
+    """Only canonical POSIX paths; Windows also treats backslashes/drives as paths."""
+    if (not isinstance(rel, str) or not rel or unquote(rel) != rel
+            or any(c in rel for c in '\\:?#<>"|*') or any(ord(c) < 32 for c in rel)
+            or any(part in ("", ".", "..") or part.endswith((" ", ".")) for part in rel.split("/"))
+            or rel.split("/", 1)[0].lower() in (STAGING, BACKUP)):
+        raise NeedFullInstall(f"更新清单里有不合法的路径：{rel!r}")
+    return rel
+
+
+def _contained_path(root: Path, rel: str) -> Path:
+    """Check resolved paths as well, so an existing junction cannot redirect writes."""
+    target = root / rel
+    if not target.resolve().is_relative_to(root.resolve()):
+        raise NeedFullInstall(f"更新文件路径超出目录：{rel!r}")
+    return target
+
+
+def check_manifest(m: dict, version: str) -> dict:
+    if not isinstance(m, dict) or m.get("schema_version") != 1 or m.get("version") != version:
+        raise NeedFullInstall(f"更新清单不是 {version} 的")
+    files, patchable = m.get("files"), m.get("patchable")
+    if not isinstance(files, dict) or not isinstance(patchable, list):
+        raise NeedFullInstall("更新清单不完整")
+    for rel in files:
+        _relative_path(rel)
+    if any(not isinstance(rel, str) for rel in patchable) or not set(patchable) <= set(files):
+        raise NeedFullInstall("更新清单不完整")
+    return m
+
+
+def fetch_manifest(version: str, sources=SOURCES, timeout: float = 15) -> tuple[dict, str]:
+    """依次试每个地址，返回 (清单, 地址)。版本对不上（如 jsDelivr 缓存还是旧的）就换下一个。"""
+    errors = []
+    for base in sources:
+        try:
+            r = requests.get(f"{base}/manifest.json", headers=cloud.headers(base + "/"), timeout=timeout)
+            r.raise_for_status()
+            return check_manifest(r.json(), version), base
+        except (requests.RequestException, ValueError, NeedFullInstall) as e:
+            errors.append(f"{base.split('/')[2]}：{e}")
+    raise NeedFullInstall("拿不到更新清单：" + "；".join(errors))
+
+
+def plan(manifest: dict, root: Path) -> tuple[list[str], list[str]]:
+    """和本机文件比较，返回 (要下载的文件, 要删掉的文件)。有第三方库变了就抛 NeedFullInstall。"""
+    root = Path(root)
+    check_manifest(manifest, manifest.get("version"))
+    files, patchable = manifest["files"], set(manifest["patchable"])
+    changed = []
+    for rel, f in files.items():
+        p = _contained_path(root, rel)
+        if p.is_file() and p.stat().st_size == f["size"] and sha256_file(p) == f["sha256"]:
+            continue
+        if rel not in patchable:
+            raise NeedFullInstall(f"{rel} 也变了，要用完整安装包")
+        changed.append(rel)
+    stale = [p.relative_to(root).as_posix() for p in (root / "_internal" / "lolhex").rglob("*")
+             if p.is_file() and p.relative_to(root).as_posix() not in files] if (root / "_internal" / "lolhex").is_dir() else []
+    return changed, stale
+
+
+def download(manifest: dict, changed: list[str], root: Path, sources=SOURCES, progress=None,
+             timeout: float = 30) -> Path:
+    """下载变了的文件到 <root>/_update_new，逐个校验 SHA-256。返回暂存目录。"""
+    from .data import http
+    check_manifest(manifest, manifest.get("version"))
+    staging = _contained_path(Path(root), STAGING)
+    for rel in changed:
+        _relative_path(rel)
+        if rel not in manifest["files"] or rel not in manifest["patchable"]:
+            raise NeedFullInstall("更新文件不在可更新清单中")
+        _contained_path(staging, rel)
+    shutil.rmtree(staging, ignore_errors=True)
+    gz = manifest.get("encoding") == "gzip"
+    packed = manifest.get("packed") or {}
+    # 进度按实际要下载的字节算：有压缩版就按压缩后的大小（清单里有记录时）
+    share = {rel: (packed.get(rel) if gz and packed.get(rel) else manifest["files"][rel]["size"]) for rel in changed}
+    total = sum(share.values())
+    finished = 0  # 已经下完的文件的字节数
+
+    def report(n_in_file):
+        if progress:
+            progress(min(finished + n_in_file, total), total)
+    try:
+        for rel in changed:
+            want = manifest["files"][rel]
+            body, errors = None, []
+            # 优先下压缩版（.gz）：jsDelivr 不给下 .exe，压缩后也更小；没有压缩版的旧清单下原文件
+            suffixes = [".gz", ""] if gz else [""]
+            for base in sources:
+                for suffix in suffixes:
+                    got = [0]
+
+                    def on_bytes(n):
+                        got[0] += n
+                        report(got[0])
+                    try:
+                        raw = http.fetch(f"{base}/files/{rel}{suffix}", headers=cloud.headers(base + "/"), timeout=timeout,
+                                         on_bytes=on_bytes)
+                        data = gzip.decompress(raw) if suffix else raw
+                        if len(data) != want["size"] or hashlib.sha256(data).hexdigest() != want["sha256"]:
+                            raise ValueError("校验不对")
+                        body = data
+                        finished += share[rel]
+                        break
+                    except (requests.RequestException, ValueError, OSError, EOFError) as e:
+                        errors.append(f"{base.split('/')[2]}{suffix}：{e}")
+                if body is not None:
+                    break
+            if body is None:
+                raise NeedFullInstall(f"{rel} 下载失败：" + "；".join(errors))
+            out = _contained_path(staging, rel)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(body)
+            report(0)
+    except BaseException:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+    return staging
+
+
+def apply_script(root: Path, changed: list[str], stale: list[str], pid: int, version: str,
+                 relaunch: str | None) -> str:
+    """生成替换文件的 PowerShell 脚本：等助手退出 → 旧文件挪到 _update_old → 新文件挪进来 →
+    删掉新版本里没有的旧文件；任何一步失败就全部挪回去。最后重新打开助手。"""
+    root = Path(root)
+    staging = _contained_path(root, STAGING)
+    backup = _contained_path(root, BACKUP)
+    for rel in changed + stale:
+        _relative_path(rel)
+        _contained_path(root, rel)
+        _contained_path(backup, rel)
+    for rel in changed:
+        _contained_path(staging, rel)
+
+    def q(s: str) -> str:
+        return "'" + str(s).replace("'", "''") + "'"
+    lines = [
+        "$ErrorActionPreference = 'Stop'",
+        f"$root = {q(Path(root))}",
+        f"$new = Join-Path $root {q(STAGING)}",
+        f"$old = Join-Path $root {q(BACKUP)}",
+        f"$changed = @({', '.join(q(r) for r in changed)})",
+        f"$stale = @({', '.join(q(r) for r in stale)})",
+        # 等助手退出；30 秒还没退（例如卡在某个网络请求上）就结束它——只结束我们自己的这个进程
+        f"$pid0 = {int(pid)}",
+        "try { Wait-Process -Id $pid0 -Timeout 30 -ErrorAction Stop } catch { }",
+        "if (Get-Process -Id $pid0 -ErrorAction SilentlyContinue) {"
+        " Stop-Process -Id $pid0 -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2 }",
+        "Start-Sleep -Milliseconds 500",
+        # 文件刚释放时常被占着（杀毒软件扫描等）：每次挪文件最多等约 1 分钟；文件本来就没有的不用等
+        "function Move-Retry($from, $to) {"
+        " if (-not (Test-Path -LiteralPath $from)) { throw 'file not found' }"
+        " for ($i = 0; $i -lt 30; $i++) {"
+        " try { Move-Item -LiteralPath $from $to -Force -ErrorAction Stop; return } catch { if ($i -eq 29) { throw }"
+        " Start-Sleep -Seconds 2 } } }",
+        # 还原：源文件被占着（挪不动但读得了）就复制回去；目标被占着就等一会儿，最多约 18 秒
+        "function Restore-File($from, $to) {"
+        " for ($i = 0; $i -lt 10; $i++) {"
+        " try { Move-Item -LiteralPath $from $to -Force -ErrorAction Stop; return } catch {"
+        " try { Copy-Item -LiteralPath $from $to -Force -ErrorAction Stop; return } catch { if ($i -eq 9) { throw }"
+        " Start-Sleep -Seconds 2 } } } }",
+        # 删除：刚放下的文件也可能在被扫描，同样等一会儿，最多约 18 秒；本来就没有的不用等
+        "function Remove-Retry($path) {"
+        " for ($i = 0; $i -lt 10; $i++) {"
+        " if (-not (Test-Path -LiteralPath $path)) { return }"
+        " try { Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction Stop; return } catch { if ($i -eq 9) { throw }"
+        " Start-Sleep -Seconds 2 } } }",
+        "$moved = @()",
+        "$placed = @()",
+        "$current = ''",
+        "try {",
+        f"  if (Test-Path -LiteralPath (Join-Path $root {q(ROLLBACK_INCOMPLETE)})) {{ throw 'Previous rollback incomplete; reinstall required' }}",
+        # 上次留下的备份删不掉就不更新：不能和这次的备份混在一起；走下面的失败分支，记下原因并重新打开助手
+        f"  $current = {q(BACKUP)}",
+        "  Remove-Retry $old",
+        "  foreach ($rel in $changed + $stale) {",
+        "    $current = $rel",
+        "    $dst = Join-Path $root $rel",
+        "    if (Test-Path -LiteralPath $dst) {",
+        "      $bak = Join-Path $old $rel",
+        "      New-Item -ItemType Directory -Force (Split-Path $bak) | Out-Null",
+        "      Move-Retry $dst $bak",
+        "      $moved += $rel",
+        "    }",
+        "  }",
+        "  foreach ($rel in $changed) {",
+        "    $current = $rel",
+        "    $dst = Join-Path $root $rel",
+        "    New-Item -ItemType Directory -Force (Split-Path $dst) | Out-Null",
+        "    Move-Retry (Join-Path $new $rel) $dst",
+        "    $placed += $rel",
+        "  }",
+        # 只改本目录的安装信息；便携版与其他目录里的安装版互不影响。
+        "  if (-not (Test-Path -LiteralPath (Join-Path $root 'portable.txt'))) {",
+        f"    foreach ($hive in 'HKCU:\\', 'HKLM:\\') {{ try {{ $k = $hive + {q(UNINSTALL_KEY)}; "
+        "if (Test-Path -LiteralPath $k) { $location = (Get-ItemProperty -LiteralPath $k -ErrorAction Stop).InstallLocation; "
+        "if ($location -and ([IO.Path]::GetFullPath($location).TrimEnd('\\') -ieq [IO.Path]::GetFullPath($root).TrimEnd('\\'))) { "
+        f"Set-ItemProperty -LiteralPath $k -Name DisplayVersion -Value {q(version)} -ErrorAction Stop }} }} }} "
+        "catch { } }",
+        "  }",
+        "  Remove-Item -Recurse -Force $old -ErrorAction SilentlyContinue",
+        f"  Remove-Item -LiteralPath (Join-Path $root {q(ROLLBACK_INCOMPLETE)}) -Force -ErrorAction SilentlyContinue",
+        "} catch {",
+        "  $reason = $current + ': ' + $_.ToString()",  # 写明卡在哪个文件，下次启动记进日志
+        # 有旧文件的会被直接覆盖，这里只删新版本新增的文件
+        "  $restored = $true",
+        "  foreach ($rel in $placed) { if ($moved -notcontains $rel) { try {"
+        " Remove-Retry (Join-Path $root $rel) } catch { $restored = $false } } }",
+        "  foreach ($rel in $moved) { $dst = Join-Path $root $rel; try {"
+        " New-Item -ItemType Directory -Force (Split-Path $dst) | Out-Null;"
+        " Restore-File (Join-Path $old $rel) $dst } catch { $restored = $false } }",
+        f"  if (-not $restored) {{ Set-Content -LiteralPath (Join-Path $root {q(ROLLBACK_INCOMPLETE)}) -Value $reason -Encoding UTF8 }}",
+        "  Set-Content -LiteralPath (Join-Path $root 'update-failed.txt') -Value $reason -Encoding UTF8",
+        "}",
+        "Remove-Item -Recurse -Force $new -ErrorAction SilentlyContinue",
+    ]
+    if relaunch:
+        lines.append(f"Start-Process -FilePath {q(relaunch)} -WorkingDirectory $root")
+    lines.append("Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue")
+    return "\n".join(lines) + "\n"
+
+
+def _powershell_fallback() -> str | None:
+    """个别电脑的 PATH 里找不到 powershell.exe（WinError 2）时，改用系统目录里的完整路径。"""
+    system_root = os.environ.get("SystemRoot") or os.environ.get("WINDIR")
+    if system_root:
+        path = Path(system_root) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+        if path.is_file():
+            return str(path)
+    return None
+
+
+def launch_apply(root: Path, changed: list[str], stale: list[str], version: str,
+                 relaunch: str | None = None, pid: int | None = None, wait: bool = False) -> Path:
+    """写出并启动替换脚本。调用后助手应当马上退出，让出文件。"""
+    script = Path(tempfile.gettempdir()) / f"aramhex-apply-{version}-{os.getpid()}.ps1"
+    body = apply_script(root, changed, stale, pid or os.getpid(), version, relaunch)
+    script.write_text(body, encoding="utf-8-sig")  # Windows PowerShell 5.1 要 BOM 才按 UTF-8 读中文路径
+    args = ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+            "-File", str(script)]
+
+    def start(command):
+        if wait:
+            subprocess.run(command, check=False, timeout=180)
+        else:
+            # 不能用 DETACHED_PROCESS：PowerShell 没有控制台时会直接退出。用 CREATE_NO_WINDOW 隐藏窗口，
+            # 新进程组让它在助手退出后继续运行
+            flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+            subprocess.Popen(command, close_fds=True, creationflags=flags, stdin=subprocess.DEVNULL,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    try:
+        start(args)  # 绝大多数电脑走这里，和以前完全一样
+    except FileNotFoundError:
+        fallback = _powershell_fallback()
+        if not fallback:
+            raise
+        log.info("PATH 里找不到 powershell.exe，改用系统目录里的")
+        start([fallback] + args[1:])
+    return script
+
+
+def take_failure(root: Path | None = None) -> str | None:
+    """上次增量更新没装上时返回原因，并清理留下的临时目录；没有返回 None。
+    旧文件没全部还原时保留 _update_old，见 rollback_incomplete。"""
+    root = root or install_root()
+    if root is None:
+        return None
+    shutil.rmtree(Path(root) / STAGING, ignore_errors=True)
+    if not rollback_incomplete(root):
+        shutil.rmtree(Path(root) / BACKUP, ignore_errors=True)
+    f = Path(root) / "update-failed.txt"
+    if not f.exists():
+        return None
+    try:
+        reason = f.read_text(encoding="utf-8-sig", errors="replace").strip()
+    finally:
+        f.unlink(missing_ok=True)
+    return reason or "未知原因"
+
+
+def rollback_incomplete(root: Path | None = None) -> bool:
+    """上次更新未完整还原：保留备份，必须完整安装；便携版需解压到新目录。"""
+    root = root or install_root()
+    return root is not None and (Path(root) / ROLLBACK_INCOMPLETE).exists()
+
+
+def install_root() -> Path | None:
+    """打包后的程序目录；源码运行时没有，不做增量更新。"""
+    return program_dir() if getattr(sys, "frozen", False) else None
+
+
+RANK_MIN_BYTES = 3 * 1024 * 1024  # 要下载的超过这么多才测速挑线路
+
+
+def rank_by_speed(sources: list[str], rel: str, sample: int = 256 * 1024, timeout: float = 6) -> list[str]:
+    """几条线路同时下载同一个文件的前 256KB，按速度从快到慢排。连不上的排最后。
+    国内实测：GitHub 32KB/s，jsDelivr 的 gcore 节点 207KB/s——不能"GitHub 能连上就一直用它"。"""
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+
+    def probe(base):
+        start = time.monotonic()
+        got = 0
+        try:
+            with requests.get(f"{base}/files/{rel}", headers=cloud.headers(base + "/", Range=f"bytes=0-{sample - 1}"),
+                              timeout=timeout, stream=True) as r:
+                if r.status_code not in (200, 206):
+                    return 0.0
+                for chunk in r.iter_content(32 * 1024):
+                    got += len(chunk)
+                    if got >= sample or time.monotonic() - start > timeout:
+                        break
+        except requests.RequestException:
+            return 0.0
+        return got / max(time.monotonic() - start, 1e-3)
+
+    with ThreadPoolExecutor(max_workers=len(sources)) as pool:
+        speeds = list(pool.map(probe, sources))
+    order = sorted(range(len(sources)), key=lambda i: -speeds[i])
+    log.info("线路测速（KB/s）：%s", "，".join(f"{sources[i].split('/')[2]} {speeds[i] / 1024:.0f}" for i in order))
+    return [sources[i] for i in order]
+
+
+def _check_writable(root: Path) -> None:
+    probe = Path(root) / f".aramhex-write-test-{os.getpid()}"
+    try:
+        probe.write_bytes(b"")
+        probe.unlink()
+    except OSError as e:
+        raise NotWritable(f"{root}：{e}") from e
+
+
+def prepare(version: str, progress=None, root: Path | None = None, sources=None,
+            phase=None) -> tuple[list[str], list[str]]:
+    """查清单、比较、下载。成功返回 (变了的文件, 要删的文件)，下一步调 launch_apply；不能增量就抛 NeedFullInstall。"""
+    sources = sources or sources_for(version)
+    root = root or install_root()
+    if root is None:
+        raise NeedFullInstall("源码运行，不做增量更新")
+    if rollback_incomplete(root):
+        raise IncompleteRollback("上次更新未能完整还原，请重新下载安装包（便携版解压到新目录）；已保留旧文件备份")
+    _check_writable(root)  # 下载前就查，不让玩家白等，也不误报成下载失败
+    say = phase or (lambda text: None)  # 界面显示当前在做什么
+    say("检查更新文件…")
+    manifest, base = fetch_manifest(version, sources)
+    say("比对本机文件…")
+    changed, stale = plan(manifest, root)
+    if not changed and not stale:
+        raise NeedFullInstall("本机文件已经和新版本一样")
+    log.info("增量更新到 %s：%d 个文件要换（%.1f MB），清单来自 %s", version, len(changed),
+             sum(manifest["files"][r]["size"] for r in changed) / 1e6, base)
+    say("下载更新…")
+    order = [base] + [s for s in sources if s != base]
+    size = sum(manifest["files"][r]["size"] for r in changed)
+    if len(order) > 1 and changed and size >= RANK_MIN_BYTES:  # 小更新直接用拿到清单的线路，测速反而更慢
+        say("挑选最快的下载线路…")
+        order = rank_by_speed(order, max(changed, key=lambda r: manifest["files"][r]["size"]))
+    download(manifest, changed, root, order, progress)
+    return changed, stale
+
+
+def main(argv=None) -> int:
+    """发版用：python -m lolhex.patch <程序目录> <版本> <输出目录>，生成 updates 分支的内容。"""
+    argv = sys.argv[1:] if argv is None else argv
+    root, version, out = Path(argv[0]), argv[1], Path(argv[2])
+    m = {**build_manifest(root, version), "encoding": "gzip"}
+    shutil.rmtree(out, ignore_errors=True)
+    packed = 0
+    for rel in m["patchable"]:
+        dst = out / "files" / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(root / rel, dst)
+        gz = gzip.compress((root / rel).read_bytes(), 9, mtime=0)
+        if len(gz) > 20 * 1024 * 1024:
+            raise SystemExit(f"{rel} 压缩后仍超过 jsDelivr 的 20MB 上限")
+        dst.with_name(dst.name + ".gz").write_bytes(gz)
+        m.setdefault("packed", {})[rel] = len(gz)  # 压缩后大小：程序据此算下载进度
+        packed += len(gz)
+    (out / "manifest.json").write_text(json.dumps(m, ensure_ascii=False, indent=1, sort_keys=True) + "\n",
+                                       encoding="utf-8")
+    size = sum(m["files"][r]["size"] for r in m["patchable"])
+    print(f"updates 分支内容：{len(m['patchable'])} 个文件，原始 {size / 1e6:.1f} MB，压缩后 {packed / 1e6:.1f} MB → {out}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

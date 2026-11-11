@@ -1,0 +1,29 @@
+{
+  "package": "charset_normalizer",
+  "version": "3.5.2",
+  "status": "collected",
+  "metadata_url": "https://pypi.org/pypi/charset_normalizer/3.5.2/json",
+  "project_urls": {
+    "Changelog": "https://github.com/jawah/charset_normalizer/blob/master/CHANGELOG.md",
+    "Code": "https://github.com/jawah/charset_normalizer",
+    "Documentation": "https://charset-normalizer.readthedocs.io/",
+    "Issue tracker": "https://github.com/jawah/charset_normalizer/issues"
+  },
+  "license_expression": null,
+  "license_metadata": "MIT",
+  "wheel_filename": "charset_normalizer-3.5.2-cp313-cp313-win_amd64.whl",
+  "wheel_url": "https://files.pythonhosted.org/packages/9c/76/b8ec57f4e9ee3253541abf95e4a462c0175fe8032dcd070f1f2421240942/charset_normalizer-3.5.2-cp313-cp313-win_amd64.whl",
+  "wheel_size": 206489,
+  "wheel_sha256_from_pypi": "78456a747de8dc58360ffa581f30a002baf5aa28cb262536545e91f113ed7639",
+  "whole_wheel_sha256_verified": false,
+  "retrieval": "anonymous direct HTTPS byte ranges; individual ZIP CRC verified; whole wheel not downloaded",
+  "transferred_bytes": 75417,
+  "files": [
+    {
+      "wheel_member": "charset_normalizer-3.5.2.dist-info/licenses/LICENSE",
+      "path": "Components/charset-normalizer-3.5.2/charset_normalizer-3.5.2.dist-info/licenses/LICENSE",
+      "size": 1092,
+      "sha256": "18577485d3704f1a479ded8e573c0976cfed315fd2fd17983fa988da4c2f70d1"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "component": "OpenSSL 3.5.9",
+  "source_url": "https://github.com/openssl/openssl/blob/openssl-3.5.9/LICENSE.txt",
+  "github_blob_sha": "49cc83d2ee29d13453188217f0e4edd70c7f842f",
+  "files": [
+    {
+      "path": "OpenSSL/LICENSE.txt",
+      "size": 10175,
+      "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a",
+      "source_url": "https://github.com/openssl/openssl/blob/openssl-3.5.9/LICENSE.txt",
+      "github_blob_sha": "49cc83d2ee29d13453188217f0e4edd70c7f842f"
+    },
+    {
+      "path": "OpenSSL/AUTHORS.md",
+      "size": 1022,
+      "sha256": "b9f638dfc06b59c2d3b808186c3b30f713805a5db390f5b77b1703ac58acb83e",
+      "source_url": "https://github.com/openssl/openssl/blob/openssl-3.5.9/AUTHORS.md",
+      "github_blob_sha": "5b036a0d8358167c87c7fa275cc671cd222dcce6"
+    }
+  ]
+}

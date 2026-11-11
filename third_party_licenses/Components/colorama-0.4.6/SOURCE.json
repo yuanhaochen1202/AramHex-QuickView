@@ -1,0 +1,26 @@
+{
+  "package": "colorama",
+  "version": "0.4.6",
+  "status": "collected",
+  "metadata_url": "https://pypi.org/pypi/colorama/0.4.6/json",
+  "project_urls": {
+    "Homepage": "https://github.com/tartley/colorama"
+  },
+  "license_expression": null,
+  "license_metadata": "",
+  "wheel_filename": "colorama-0.4.6-py2.py3-none-any.whl",
+  "wheel_url": "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl",
+  "wheel_size": 25335,
+  "wheel_sha256_from_pypi": "4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6",
+  "whole_wheel_sha256_verified": false,
+  "retrieval": "anonymous direct HTTPS byte ranges; individual ZIP CRC verified; whole wheel not downloaded",
+  "transferred_bytes": 25335,
+  "files": [
+    {
+      "wheel_member": "colorama-0.4.6.dist-info/licenses/LICENSE.txt",
+      "path": "Components/colorama-0.4.6/colorama-0.4.6.dist-info/licenses/LICENSE.txt",
+      "size": 1491,
+      "sha256": "cac35c02686e5d04a5a7140bfb3b36e73aed496656e891102e428886d7930318"
+    }
+  ]
+}

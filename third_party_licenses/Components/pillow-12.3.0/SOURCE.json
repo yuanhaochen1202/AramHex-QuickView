@@ -1,0 +1,32 @@
+{
+  "package": "pillow",
+  "version": "12.3.0",
+  "status": "collected",
+  "metadata_url": "https://pypi.org/pypi/pillow/12.3.0/json",
+  "project_urls": {
+    "Changelog": "https://github.com/python-pillow/Pillow/releases",
+    "Documentation": "https://pillow.readthedocs.io",
+    "Funding": "https://tidelift.com/subscription/pkg/pypi-pillow?utm_source=pypi-pillow&utm_medium=pypi",
+    "Homepage": "https://python-pillow.github.io",
+    "Mastodon": "https://fosstodon.org/@pillow",
+    "Release notes": "https://pillow.readthedocs.io/en/stable/releasenotes/index.html",
+    "Source": "https://github.com/python-pillow/Pillow"
+  },
+  "license_expression": "MIT-CMU",
+  "license_metadata": null,
+  "wheel_filename": "pillow-12.3.0-cp313-cp313-win_amd64.whl",
+  "wheel_url": "https://files.pythonhosted.org/packages/a6/9b/7a58e61d62be561da3a356fe2384d4059a6345fc130e23ef1c36a5b81d24/pillow-12.3.0-cp313-cp313-win_amd64.whl",
+  "wheel_size": 7239691,
+  "wheel_sha256_from_pypi": "1cca606cd25738df4ed873d5ad46bbdb3d83b5cbca291f6b4ff13a4df6b0bbe8",
+  "whole_wheel_sha256_verified": false,
+  "retrieval": "anonymous direct HTTPS byte ranges; individual ZIP CRC verified; whole wheel not downloaded",
+  "transferred_bytes": 96267,
+  "files": [
+    {
+      "wheel_member": "pillow-12.3.0.dist-info/licenses/LICENSE",
+      "path": "Components/pillow-12.3.0/pillow-12.3.0.dist-info/licenses/LICENSE",
+      "size": 78016,
+      "sha256": "4f7866a74802c6326f81faff59a56546b6aec2b10b91973e0e9308de95e79857"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "package": "rapidfuzz",
+  "version": "3.14.6",
+  "status": "collected",
+  "metadata_url": "https://pypi.org/pypi/rapidfuzz/3.14.6/json",
+  "project_urls": {
+    "Changelog": "https://github.com/rapidfuzz/RapidFuzz/blob/main/CHANGELOG.rst",
+    "Documentation": "https://rapidfuzz.github.io/RapidFuzz/",
+    "Homepage": "https://github.com/rapidfuzz/RapidFuzz",
+    "Issues": "https://github.com/rapidfuzz/RapidFuzz/issues",
+    "Repository": "https://github.com/rapidfuzz/RapidFuzz.git"
+  },
+  "license_expression": "MIT",
+  "license_metadata": null,
+  "wheel_filename": "rapidfuzz-3.14.6-cp313-cp313-win_amd64.whl",
+  "wheel_url": "https://files.pythonhosted.org/packages/67/f1/5b7c56737b9e5af7523ea79e90df732e9e4b2fa66fe2b333ee013ea6e541/rapidfuzz-3.14.6-cp313-cp313-win_amd64.whl",
+  "wheel_size": 1728638,
+  "wheel_sha256_from_pypi": "c69fb0e064d10c79908dcda76d7ca8ecdf8393a39acbb74dbad3f709f2c60e95",
+  "whole_wheel_sha256_verified": false,
+  "retrieval": "anonymous direct HTTPS byte ranges; individual ZIP CRC verified; whole wheel not downloaded",
+  "transferred_bytes": 24702,
+  "files": [
+    {
+      "wheel_member": "rapidfuzz-3.14.6.dist-info/licenses/LICENSE",
+      "path": "Components/rapidfuzz-3.14.6/rapidfuzz-3.14.6.dist-info/licenses/LICENSE",
+      "size": 1092,
+      "sha256": "f34ccdffdff56fc417785915eedf18601d5479755df3c472b2c754c29802d683"
+    }
+  ]
+}
